@@ -1,0 +1,22 @@
+{
+    "EF123": {
+        "requests": 10,
+        "users": [
+            "Shivansh_raj",
+            "Aryanraj010101"
+        ],
+        "purchased": [
+            "Shivansh_raj",
+            "Aryanraj010101"
+        ]
+    },
+    "DF123": {
+        "requests": 1,
+        "users": [
+            "Shivansh_raj"
+        ],
+        "purchased": [
+            "Shivansh_raj"
+        ]
+    }
+}
