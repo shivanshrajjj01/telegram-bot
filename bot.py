@@ -6,7 +6,7 @@ import os
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from telebot.types import BotCommand, BotCommandScopeDefault, BotCommandScopeChat
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("8771596466:AAE2mK2asal_1W4Ve2sNo3pyKEF9EiDN1M0")
 ADMIN_ID = 8201189040
 
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -16,7 +16,7 @@ bot = telebot.TeleBot(BOT_TOKEN)
 # 👤 User menu
 user_commands = [
     BotCommand("start", "Start bot"),
-    BotCommand("help", "Help")
+    BotCommand("help", "Get help")
 ]
 
 # 👑 Admin menu
@@ -53,7 +53,7 @@ STATS = load_json("stats.json")
 def start_command(message):
     bot.reply_to(
         message,
-        "Hi 👋\nAssistant of Shivansh here 😉\nJust send me post and get started."
+        "Hi bro 👋\nAssistant of Shivansh here 😉\nJust Forward that post to me so I can check it 👀"
     )
 
 # ---------- HELP ---------- #
@@ -61,7 +61,7 @@ def start_command(message):
 def help_command(message):
     bot.reply_to(
         message,
-        "Need help?\n\nInstagram: yourusername\nTelegram: @yourusername"
+        "Need help?\nTelegram: @Shivansh_raj"
     )
 
 # ---------- ADD ---------- #
@@ -167,7 +167,7 @@ def status_command(message):
 
 # ---------- FOLLOW-UP ---------- #
 def follow_up(chat_id, deal_id):
-    time.sleep(180)
+    time.sleep(90)
 
     markup = InlineKeyboardMarkup()
     markup.add(
@@ -203,17 +203,17 @@ def handle_buttons(call):
 
         bot.send_message(
             call.message.chat.id,
-            "Did you send order screenshot and order ID to @Shivansh_raj?",
+            "Did you send order ID and screenshot to @Shivansh_raj?",
             reply_markup=markup
         )
 
     elif call.data.startswith("buy_no_"):
-        bot.send_message(call.message.chat.id, "Thank you for your time 🙌")
+        bot.send_message(call.message.chat.id, "Thanks for your time 🙌")
 
     elif call.data == "sent_no":
         bot.send_message(
             call.message.chat.id,
-            "Please send order ID and screenshot to @Shivansh_raj"
+            "Order placed? Then send your Order ID and screenshot to @Shivansh_raj. No submission, no refund."
         )
 
     elif call.data == "sent_yes":
