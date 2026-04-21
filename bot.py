@@ -165,8 +165,8 @@ def status_command(message):
 
     bot.reply_to(message, msg)
 
-# ---------- FOLLOW-UP ---------- #
-def follow_up(chat_id, deal_id):
+# ---------- FOLLOW-UP (UPDATED) ---------- #
+def follow_up(chat_id, deal_id, reply_to_msg_id):
     time.sleep(90)
 
     markup = InlineKeyboardMarkup()
@@ -175,7 +175,12 @@ def follow_up(chat_id, deal_id):
         InlineKeyboardButton("No", callback_data=f"buy_no_{deal_id}")
     )
 
-    bot.send_message(chat_id, "Did you purchase this product?", reply_markup=markup)
+    bot.send_message(
+        chat_id,
+        "Did you purchase this product?",
+        reply_markup=markup,
+        reply_to_message_id=reply_to_msg_id
+    )
 
 # ---------- BUTTON HANDLER ---------- #
 @bot.callback_query_handler(func=lambda call: True)
@@ -244,8 +249,11 @@ def reply_data(message):
 
             bot.reply_to(message, DATA[key])
 
-            threading.Thread(target=follow_up, args=(message.chat.id, key)).start()
+            threading.Thread(
+                target=follow_up,
+                args=(message.chat.id, key, message.message_id)
+            ).start()
             break
 
 print("Bot running...")
-bot.infinity_polling() 
+bot.infinity_polling()
