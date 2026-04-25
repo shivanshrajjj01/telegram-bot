@@ -183,19 +183,14 @@ def capture(msg):
         return
 
     text = msg.text.strip()
-
-    # 👉 If user sends another deal ID → exit order mode
-    if text.upper() in DATA:
-        WAITING_FOR_ORDER.pop(uid, None)
-        return
-
-    # clean input
     order = re.sub(r"\s+", "", text)
 
-    # ✅ VALID ORDER ID
-    if re.fullmatch(r"\d{3}-\d{7}-\d{7}", order):
+    # 👉 DEBUG (optional, remove later)
+    print("Received:", order)
 
-        # duplicate check
+    # ✅ VALID ORDER (simple and reliable)
+    if len(order) == 19 and order.count("-") == 2:
+        
         for o in STATS[deal]["order_ids"]:
             if o["order_id"] == order:
                 bot.reply_to(msg, "⚠️ Order ID already submitted")
@@ -213,17 +208,13 @@ def capture(msg):
             msg,
             f"✅ Order ID saved successfully for {deal}\n\nThank you 🙌"
         )
-
-    # ❌ INVALID ORDER ID (only if it looks like an attempt)
-    elif "-" in order or order.isdigit():
-        bot.reply_to(
-            msg,
-            "❌ Invalid Order ID format\n\nSend like: 123-1234567-1234567\nContact: @Shivansh_raj"
-        )
-
-    # 🤫 Ignore random messages
-    else:
         return
+
+    # ❌ INVALID (ONLY THEN show error)
+    bot.reply_to(
+        msg,
+        "❌ Invalid Order ID format\n\nSend like: 123-1234567-1234567\nContact: @Shivansh_raj"
+    )
 # ===== AUTO REPLY =====
 @bot.message_handler(func=lambda m: True, content_types=['text','photo'])
 def reply(msg):
