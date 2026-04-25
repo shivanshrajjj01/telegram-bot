@@ -3,23 +3,21 @@ import json
 import time
 import threading
 import os
+import re
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from telebot.types import BotCommand, BotCommandScopeDefault, BotCommandScopeChat
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = "PASTE_YOUR_TOKEN_HERE"
 ADMIN_ID = 8201189040
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# ================= MENU SETUP (ADDED) ================= #
-
-# 👤 User menu
+# ===== MENU =====
 user_commands = [
     BotCommand("start", "Start bot"),
-    BotCommand("help", "Get help")
+    BotCommand("help", "Help")
 ]
 
-# 👑 Admin menu
 admin_commands = [
     BotCommand("add", "Add data"),
     BotCommand("delete", "Delete data"),
@@ -27,231 +25,193 @@ admin_commands = [
     BotCommand("status", "Check stats")
 ]
 
-# Apply menus
 bot.set_my_commands(user_commands, scope=BotCommandScopeDefault())
 bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=ADMIN_ID))
 
-# ===================================================== #
-
-# ---------- LOAD & SAVE ---------- #
-def load_json(file):
+# ===== DATA =====
+def load(file):
     try:
         with open(file, "r") as f:
             return json.load(f)
     except:
         return {}
 
-def save_json(file, data):
+def save(file, data):
     with open(file, "w") as f:
         json.dump(data, f, indent=4)
 
-DATA = load_json("data.json")
-STATS = load_json("stats.json")
+DATA = load("data.json")
+STATS = load("stats.json")
 
-# ---------- START ---------- #
+WAITING_FOR_ORDER = {}
+
+# ===== START =====
 @bot.message_handler(commands=['start'])
-def start_command(message):
-    bot.reply_to(
-        message,
-        "Hi bro 👋\nAssistant of Shivansh here 😉\nJust Forward that post to me so I can check it 👀"
-    )
+def start(msg):
+    bot.reply_to(msg, "Hi 👋\nAssistant of Shivansh here 😉\nSend me any deal.")
 
-# ---------- HELP ---------- #
+# ===== HELP =====
 @bot.message_handler(commands=['help'])
-def help_command(message):
-    bot.reply_to(
-        message,
-        "Need help?\nTelegram: @Shivansh_raj"
-    )
+def help_cmd(msg):
+    bot.reply_to(msg, "Need help?\nContact: @Shivansh_raj")
 
-# ---------- ADD ---------- #
+# ===== ADD =====
 @bot.message_handler(commands=['add'])
-def add_data(message):
-    if message.from_user.id != ADMIN_ID:
+def add(msg):
+    if msg.from_user.id != ADMIN_ID:
         return
-
     try:
-        text = message.text.split("\n", 1)
-        deal_id = text[0].split()[1].upper()
-        content = text[1]
-
-        DATA[deal_id] = content
-        save_json("data.json", DATA)
-
-        bot.reply_to(message, f"✅ Saved {deal_id}")
+        parts = msg.text.split("\n", 1)
+        deal_id = parts[0].split()[1].upper()
+        DATA[deal_id] = parts[1]
+        save("data.json", DATA)
+        bot.reply_to(msg, f"✅ Saved {deal_id}")
     except:
-        bot.reply_to(message, "❌ Use:\n/add CF123\nYour data")
+        bot.reply_to(msg, "❌ Use:\n/add EF123\nYour data")
 
-# ---------- DELETE ---------- #
+# ===== DELETE =====
 @bot.message_handler(commands=['delete'])
-def delete_data(message):
-    if message.from_user.id != ADMIN_ID:
+def delete(msg):
+    if msg.from_user.id != ADMIN_ID:
         return
-
     try:
-        deal_id = message.text.split()[1].upper()
-
-        if deal_id in DATA:
-            del DATA[deal_id]
-            save_json("data.json", DATA)
-            bot.reply_to(message, f"🗑 Deleted {deal_id}")
-        else:
-            bot.reply_to(message, "❌ ID not found")
+        deal_id = msg.text.split()[1].upper()
+        DATA.pop(deal_id, None)
+        save("data.json", DATA)
+        bot.reply_to(msg, f"🗑 Deleted {deal_id}")
     except:
-        bot.reply_to(message, "❌ Use:\n/delete CF123")
+        bot.reply_to(msg, "❌ Use /delete EF123")
 
-# ---------- DELETE ALL (HIDDEN) ---------- #
-@bot.message_handler(commands=['deleteall'])
-def delete_all_data(message):
-    if message.from_user.id != ADMIN_ID:
-        return
-
-    global DATA, STATS
-    DATA = {}
-    STATS = {}
-
-    save_json("data.json", DATA)
-    save_json("stats.json", STATS)
-
-    bot.reply_to(message, "🗑 All data deleted successfully")
-
-# ---------- LIST ---------- #
+# ===== LIST =====
 @bot.message_handler(commands=['list'])
-def list_data(message):
-    if message.from_user.id != ADMIN_ID:
+def list_cmd(msg):
+    if msg.from_user.id != ADMIN_ID:
         return
+    bot.reply_to(msg, "\n".join(DATA.keys()) or "No data")
 
-    if not DATA:
-        bot.reply_to(message, "❌ No data saved")
-        return
-
-    bot.reply_to(message, "\n".join(DATA.keys()))
-
-# ---------- STATUS ---------- #
+# ===== STATUS =====
 @bot.message_handler(commands=['status'])
-def status_command(message):
-    if message.from_user.id != ADMIN_ID:
+def status(msg):
+    if msg.from_user.id != ADMIN_ID:
         return
 
-    if not STATS:
-        bot.reply_to(message, "❌ No data yet")
-        return
-
-    args = message.text.split(maxsplit=1)
-    msg = "📊 Deal Performance:\n\n"
+    args = msg.text.split(maxsplit=1)
 
     if len(args) == 1:
-        for key, v in STATS.items():
-            msg += (
-                f"{key}\n"
-                f"👁 Requests: {v.get('requests', 0)}\n"
-                f"🛒 Purchased: {len(v.get('purchased', []))}\n\n"
-            )
-    else:
-        ids = args[1].replace(",", " ").split()
+        out = "📊 All Deals:\n\n"
+        for k, v in STATS.items():
+            out += f"{k} → {len(v.get('order_ids', []))} orders\n"
+        bot.reply_to(msg, out)
+        return
 
-        for deal_id in ids:
-            deal_id = deal_id.upper()
+    deal = args[1].upper()
+    if deal not in STATS:
+        bot.reply_to(msg, "❌ No data")
+        return
 
-            if deal_id in STATS:
-                v = STATS[deal_id]
-                msg += (
-                    f"{deal_id}\n"
-                    f"👁 Requests: {v.get('requests', 0)}\n"
-                    f"🛒 Purchased: {len(v.get('purchased', []))}\n\n"
-                )
-            else:
-                msg += f"{deal_id} ❌ No data\n\n"
+    v = STATS[deal]
+    out = f"📊 {deal}\n\n"
+    out += f"👁 Requests: {v.get('requests',0)}\n"
+    out += f"🛒 Purchased: {len(v.get('purchased',[]))}\n"
+    out += f"🧾 Orders: {len(v.get('order_ids',[]))}\n\n"
 
-    bot.reply_to(message, msg)
+    for o in v.get("order_ids", []):
+        out += f"{o['order_id']}\n"
 
-# ---------- FOLLOW-UP (UPDATED) ---------- #
-def follow_up(chat_id, deal_id, reply_to_msg_id):
+    bot.reply_to(msg, out)
+
+# ===== FOLLOW-UP =====
+def follow_up(chat_id, deal_id, reply_id):
     time.sleep(90)
 
-    markup = InlineKeyboardMarkup()
-    markup.add(
-        InlineKeyboardButton("Yes", callback_data=f"buy_yes_{deal_id}"),
-        InlineKeyboardButton("No", callback_data=f"buy_no_{deal_id}")
+    kb = InlineKeyboardMarkup()
+    kb.add(
+        InlineKeyboardButton("Yes", callback_data=f"yes_{deal_id}"),
+        InlineKeyboardButton("No", callback_data=f"no_{deal_id}")
     )
 
     bot.send_message(
         chat_id,
         "Did you purchase this product?",
-        reply_markup=markup,
-        reply_to_message_id=reply_to_msg_id
+        reply_markup=kb,
+        reply_to_message_id=reply_id
     )
 
-# ---------- BUTTON HANDLER ---------- #
-@bot.callback_query_handler(func=lambda call: True)
-def handle_buttons(call):
-    user = call.from_user.username or call.from_user.first_name
+# ===== BUTTONS =====
+@bot.callback_query_handler(func=lambda c: True)
+def buttons(call):
+    uid = call.from_user.id
+    deal = call.data.split("_")[1]
 
     bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
 
-    if call.data.startswith("buy_yes_"):
-        deal_id = call.data.split("_")[2]
+    if deal not in STATS:
+        STATS[deal] = {"requests":0,"purchased":[],"order_ids":[]}
 
-        if deal_id not in STATS:
-            STATS[deal_id] = {"requests": 0, "users": [], "purchased": []}
+    if call.data.startswith("yes_"):
+        if uid not in STATS[deal]["purchased"]:
+            STATS[deal]["purchased"].append(uid)
 
-        if user not in STATS[deal_id]["purchased"]:
-            STATS[deal_id]["purchased"].append(user)
+        WAITING_FOR_ORDER[uid] = deal
+        save("stats.json", STATS)
 
-        save_json("stats.json", STATS)
+        bot.send_message(call.message.chat.id, "Please send your Order ID")
 
-        markup = InlineKeyboardMarkup()
-        markup.add(
-            InlineKeyboardButton("Yes", callback_data="sent_yes"),
-            InlineKeyboardButton("No", callback_data="sent_no")
-        )
+    else:
+        bot.send_message(call.message.chat.id, "Thanks 🙌")
 
-        bot.send_message(
-            call.message.chat.id,
-            "Did you send order ID and screenshot to @Shivansh_raj?",
-            reply_markup=markup
-        )
+# ===== ORDER ID CAPTURE (IMPORTANT: ABOVE AUTO REPLY) =====
+@bot.message_handler(func=lambda m: m.from_user.id in WAITING_FOR_ORDER)
+def capture(msg):
+    uid = msg.from_user.id
+    deal = WAITING_FOR_ORDER.get(uid)
 
-    elif call.data.startswith("buy_no_"):
-        bot.send_message(call.message.chat.id, "Thanks for your time 🙌")
-
-    elif call.data == "sent_no":
-        bot.send_message(
-            call.message.chat.id,
-            "Order placed? Then send your Order ID and screenshot to @Shivansh_raj. No submission, no refund."
-        )
-
-    elif call.data == "sent_yes":
-        bot.send_message(call.message.chat.id, "Thank you for purchasing 😊")
-
-# ---------- AUTO REPLY ---------- #
-@bot.message_handler(func=lambda m: True, content_types=['text', 'photo'])
-def reply_data(message):
-    text = message.text or message.caption
-    if not text:
+    if not deal:
         return
 
-    text = text.upper()
-    user = message.from_user.username or message.from_user.first_name
+    order = msg.text.strip().replace(" ", "")
 
-    for key in DATA:
-        if key in text or f"#{key}" in text:
+    if not re.fullmatch(r"\d{3}-\d{7}-\d{7}", order):
+        bot.reply_to(
+            msg,
+            "❌ Please send a valid Order ID (format: 123-1234567-1234567)\n\nContact: @Shivansh_raj"
+        )
+        return
 
-            if key not in STATS:
-                STATS[key] = {"requests": 0, "users": [], "purchased": []}
+    for o in STATS[deal]["order_ids"]:
+        if o["order_id"] == order:
+            bot.reply_to(msg, "⚠️ Order ID already submitted")
+            return
 
-            STATS[key]["requests"] += 1
+    STATS[deal]["order_ids"].append({
+        "chat_id": msg.chat.id,
+        "order_id": order
+    })
 
-            if user not in STATS[key]["users"]:
-                STATS[key]["users"].append(user)
+    save("stats.json", STATS)
+    WAITING_FOR_ORDER.pop(uid, None)
 
-            save_json("stats.json", STATS)
+    bot.reply_to(msg, "✅ Order ID saved successfully")
 
-            bot.reply_to(message, DATA[key])
+# ===== AUTO REPLY (LAST) =====
+@bot.message_handler(func=lambda m: True, content_types=['text','photo'])
+def reply(msg):
+    text = (msg.text or msg.caption or "").upper()
+
+    for k in DATA:
+        if k in text or f"#{k}" in text:
+
+            if k not in STATS:
+                STATS[k] = {"requests":0,"purchased":[],"order_ids":[]}
+
+            STATS[k]["requests"] += 1
+            save("stats.json", STATS)
+
+            bot.reply_to(msg, DATA[k])
 
             threading.Thread(
                 target=follow_up,
-                args=(message.chat.id, key, message.message_id)
+                args=(msg.chat.id, k, msg.message_id)
             ).start()
             break
 
