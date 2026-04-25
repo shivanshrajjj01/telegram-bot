@@ -1,9 +1,9 @@
+import re
 import telebot
 import json
 import time
 import threading
 import os
-import re
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from telebot.types import BotCommand, BotCommandScopeDefault, BotCommandScopeChat
 
@@ -182,33 +182,48 @@ def capture(msg):
     if not deal:
         return
 
-    order = msg.text.strip().replace(" ", "")
+    text = msg.text.strip()
 
-    if not re.fullmatch(r"\d{3}-\d{7}-\d{7}", order):
+    # 👉 If user sends another deal ID → exit order mode
+    if text.upper() in DATA:
+        WAITING_FOR_ORDER.pop(uid, None)
+        return
+
+    # clean input
+    order = re.sub(r"\s+", "", text)
+
+    # ✅ VALID ORDER ID
+    if re.fullmatch(r"\d{3}-\d{7}-\d{7}", order):
+
+        # duplicate check
+        for o in STATS[deal]["order_ids"]:
+            if o["order_id"] == order:
+                bot.reply_to(msg, "⚠️ Order ID already submitted")
+                return
+
+        STATS[deal]["order_ids"].append({
+            "chat_id": msg.chat.id,
+            "order_id": order
+        })
+
+        save("stats.json", STATS)
+        WAITING_FOR_ORDER.pop(uid, None)
+
+        bot.reply_to(
+            msg,
+            f"✅ Order ID saved successfully for {deal}\n\nThank you 🙌"
+        )
+
+    # ❌ INVALID ORDER ID (only if it looks like an attempt)
+    elif "-" in order or order.isdigit():
         bot.reply_to(
             msg,
             "❌ Invalid Order ID format\n\nSend like: 123-1234567-1234567\nContact: @Shivansh_raj"
         )
+
+    # 🤫 Ignore random messages
+    else:
         return
-
-    for o in STATS[deal]["order_ids"]:
-        if o["order_id"] == order:
-            bot.reply_to(msg, "⚠️ Order ID already submitted")
-            return
-
-    STATS[deal]["order_ids"].append({
-        "chat_id": msg.chat.id,
-        "order_id": order
-    })
-
-    save("stats.json", STATS)
-    WAITING_FOR_ORDER.pop(uid, None)
-
-    bot.reply_to(
-        msg,
-        f"✅ Order ID saved successfully for {deal}\n\nThank you 🙌"
-    )
-
 # ===== AUTO REPLY =====
 @bot.message_handler(func=lambda m: True, content_types=['text','photo'])
 def reply(msg):
