@@ -7,7 +7,7 @@ import re
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from telebot.types import BotCommand, BotCommandScopeDefault, BotCommandScopeChat
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
 ADMIN_ID = 8201189040
 
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -48,7 +48,7 @@ WAITING_FOR_ORDER = {}
 # ===== START =====
 @bot.message_handler(commands=['start'])
 def start(msg):
-    bot.reply_to(msg, "Hi 👋\nAssistant of Shivansh here 😉\nSend me any deal.")
+    bot.reply_to(msg, "Hi 👋\nSend me any deal ID.")
 
 # ===== HELP =====
 @bot.message_handler(commands=['help'])
@@ -105,24 +105,30 @@ def status(msg):
         return
 
     deal = args[1].upper()
+
     if deal not in STATS:
         bot.reply_to(msg, "❌ No data")
         return
 
     v = STATS[deal]
+
     out = f"📊 {deal}\n\n"
     out += f"👁 Requests: {v.get('requests',0)}\n"
     out += f"🛒 Purchased: {len(v.get('purchased',[]))}\n"
     out += f"🧾 Orders: {len(v.get('order_ids',[]))}\n\n"
 
-    for o in v.get("order_ids", []):
-        out += f"{o['order_id']}\n"
+    if v.get("order_ids"):
+        out += "📦 Order IDs:\n"
+        for o in v["order_ids"]:
+            out += f"• {o['order_id']}\n"
+    else:
+        out += "No order IDs yet"
 
     bot.reply_to(msg, out)
 
 # ===== FOLLOW-UP =====
 def follow_up(chat_id, deal_id, reply_id):
-    time.sleep(90)
+    time.sleep(60)
 
     kb = InlineKeyboardMarkup()
     kb.add(
@@ -132,7 +138,7 @@ def follow_up(chat_id, deal_id, reply_id):
 
     bot.send_message(
         chat_id,
-        "Did you purchase this product?",
+        f"Did you purchase this product? ({deal_id})",
         reply_markup=kb,
         reply_to_message_id=reply_id
     )
@@ -149,18 +155,25 @@ def buttons(call):
         STATS[deal] = {"requests":0,"purchased":[],"order_ids":[]}
 
     if call.data.startswith("yes_"):
+
+        if uid in WAITING_FOR_ORDER:
+            return
+
         if uid not in STATS[deal]["purchased"]:
             STATS[deal]["purchased"].append(uid)
 
         WAITING_FOR_ORDER[uid] = deal
         save("stats.json", STATS)
 
-        bot.send_message(call.message.chat.id, "Please send your Order ID")
+        bot.send_message(
+            call.message.chat.id,
+            f"Please send your Order ID for {deal}"
+        )
 
     else:
         bot.send_message(call.message.chat.id, "Thanks 🙌")
 
-# ===== ORDER ID CAPTURE (IMPORTANT: ABOVE AUTO REPLY) =====
+# ===== ORDER CAPTURE =====
 @bot.message_handler(func=lambda m: m.from_user.id in WAITING_FOR_ORDER)
 def capture(msg):
     uid = msg.from_user.id
@@ -174,7 +187,7 @@ def capture(msg):
     if not re.fullmatch(r"\d{3}-\d{7}-\d{7}", order):
         bot.reply_to(
             msg,
-            "❌ Please send a valid Order ID (format: 123-1234567-1234567)\n\nContact: @Shivansh_raj"
+            "❌ Invalid Order ID format\n\nSend like: 123-1234567-1234567\nContact: @Shivansh_raj"
         )
         return
 
@@ -191,29 +204,37 @@ def capture(msg):
     save("stats.json", STATS)
     WAITING_FOR_ORDER.pop(uid, None)
 
-    bot.reply_to(msg, "✅ Order ID saved successfully")
+    bot.reply_to(
+        msg,
+        f"✅ Order ID saved successfully for {deal}\n\nThank you 🙌"
+    )
 
-# ===== AUTO REPLY (LAST) =====
+# ===== AUTO REPLY =====
 @bot.message_handler(func=lambda m: True, content_types=['text','photo'])
 def reply(msg):
     text = (msg.text or msg.caption or "").upper()
 
+    deal = None
     for k in DATA:
         if k in text or f"#{k}" in text:
-
-            if k not in STATS:
-                STATS[k] = {"requests":0,"purchased":[],"order_ids":[]}
-
-            STATS[k]["requests"] += 1
-            save("stats.json", STATS)
-
-            bot.reply_to(msg, DATA[k])
-
-            threading.Thread(
-                target=follow_up,
-                args=(msg.chat.id, k, msg.message_id)
-            ).start()
+            deal = k
             break
+
+    if not deal:
+        return
+
+    if deal not in STATS:
+        STATS[deal] = {"requests":0,"purchased":[],"order_ids":[]}
+
+    STATS[deal]["requests"] += 1
+    save("stats.json", STATS)
+
+    bot.reply_to(msg, DATA[deal])
+
+    threading.Thread(
+        target=follow_up,
+        args=(msg.chat.id, deal, msg.message_id)
+    ).start()
 
 print("Bot running...")
 bot.infinity_polling()
