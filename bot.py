@@ -7,7 +7,7 @@ import re
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from telebot.types import BotCommand, BotCommandScopeDefault, BotCommandScopeChat
 
-BOT_TOKEN = "PASTE_YOUR_TOKEN_HERE"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = 8201189040
 
 bot = telebot.TeleBot(BOT_TOKEN)
